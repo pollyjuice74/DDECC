@@ -2,9 +2,9 @@
 
 This is a further modification and augmentation of the DDECC Transformer model implemented by Yoni Choukroun and Lior Wolf. The modification is in a Colab notebook and trained weights are stored in this repo. 
 
-Implementation of [Denoising Diffusion Error Correction Codes (ICLR 2023)](https://arxiv.org/abs/2209.13533).
-
 Modifications made Colab notebook: https://github.com/pollyjuice74/Error-Bit-Decoding/blob/main/DDECCT_train.ipynb 
+
+Implementation of [Denoising Diffusion Error Correction Codes (ICLR 2023)](https://arxiv.org/abs/2209.13533).
 
 <p align="center">
 <img src="Codes_DB/illust_ddecc2.PNG" width="550px">
