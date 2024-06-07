@@ -1,6 +1,6 @@
 # Denoising Diffusion Error Correction Codes
 
-This is a further modification and augmentation of the DDECC Transformer model implemented by Yoni Choukroun and Lior Wolf. The modification is in a Colab notebook and trained weights are stored in this repo. 
+This is a further modification of the data prcessed by the DDECC Transformer model implemented by Yoni Choukroun and Lior Wolf. The modification is in a Colab notebook and trained weights are stored in this repo. 
 
 Modifications made Colab notebook: https://github.com/pollyjuice74/Error-Bit-Decoding/blob/main/DDECCT_train.ipynb 
 
