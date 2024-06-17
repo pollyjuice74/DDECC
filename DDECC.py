@@ -135,14 +135,14 @@ class PositionwiseFeedForward(nn.Module):
 
 
 class DDECCT(nn.Module):
-    def __init__(self, args, dropout=0):
+    def __init__(self, args, device, dropout=0):
         super(DDECCT, self).__init__()
         ####
         self.n_steps = args.N_steps
         self.d_model = args.d_model
         self.sigma = args.sigma
         self.register_buffer('pc_matrix', args.code.pc_matrix.transpose(0, 1).float())
-        # self.device = device
+        self.device = device
         #
         betas = torch.linspace(1e-3, 1e-2, self.n_steps)
         betas = betas*0+self.sigma
