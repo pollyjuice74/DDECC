@@ -31,7 +31,7 @@ def pass_args_ddecc():
     parser.add_argument('--sigma', type=float, default=0.01)
 
     args = parser.parse_args(args=[])
-    print("%%%%%%%%%%%%%%%")
+    # print("%%%%%%%%%%%%%%%")
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
     set_seed(args.seed)
