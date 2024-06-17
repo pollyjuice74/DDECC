@@ -135,15 +135,29 @@ class PositionwiseFeedForward(nn.Module):
 
 
 class DDECCT(nn.Module):
-    def __init__(self, args, device, dropout=0):
+    def __init__(self, args, encoder, decoder,
+                 device, dropout=0):
+      
         super(DDECCT, self).__init__()
-        ####
-        self.n_steps = args.N_steps
+
+        self.encoder = encoder
+        self.decoder = decoder
+
+        self.n_steps = encoder.pcm.shape[0] # pcm.size[0] + 5
         self.d_model = args.d_model
         self.sigma = args.sigma
-        self.register_buffer('pc_matrix', args.code.pc_matrix.transpose(0, 1).float())
+
+        pcm_coo = encoder.pcm.tocoo() # Convert the SciPy sparse matrix to COO format
+
+        # Create a PyTorch sparse tensor from the COO format
+        indices = torch.tensor([pcm_coo.row, pcm_coo.col], dtype=torch.int64)
+        values = torch.tensor(pcm_coo.data, dtype=torch.float32)
+        shape = torch.Size(pcm_coo.shape)
+
+        # Register the sparse tensor as a buffer
+        self.register_buffer('pc_matrix', torch.sparse_coo_tensor(indices, values, shape)) # should be float
         self.device = device
-        #
+
         betas = torch.linspace(1e-3, 1e-2, self.n_steps)
         betas = betas*0+self.sigma
         self.betas = betas.view(-1,1)
@@ -152,25 +166,26 @@ class DDECCT(nn.Module):
 
         self.line_search = False
 
-        code = args.code
+        # code = args.code
         c = copy.deepcopy
         attn = MultiHeadedAttention(args.h, args.d_model)
         ff = PositionwiseFeedForward(args.d_model, args.d_model*4, dropout)
 
         self.src_embed = torch.nn.Parameter(torch.empty(
-            (code.n + code.pc_matrix.size(0), args.d_model)))
+            (encoder._n_ldpc + encoder.pcm.shape[0], args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
         self.decoder = Encoder(EncoderLayer(
             args.d_model, c(attn), c(ff), dropout), args.N_dec)
         self.oned_final_embed = torch.nn.Sequential(
             *[nn.Linear(args.d_model, 1)])
-        self.out_fc = nn.Linear(code.n + code.pc_matrix.size(0), code.n)
+        self.out_fc = nn.Linear(encoder._n_ldpc + encoder.pcm.shape[0], encoder._n_ldpc) #code.n + code.pc_matrix.size(0), code.n)
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
         
-        self.get_mask(code)
+        self.get_mask()
 
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
+
 
     def forward(self, y, time_step):
         magnitude = torch.abs(y)
@@ -183,6 +198,7 @@ class DDECCT(nn.Module):
         emb = time_emb * emb
         emb = self.decoder(emb, self.src_mask,time_emb)
         return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
+
 
     def p_sample(self, yt):
         #Single sampling from the real p dist.
@@ -203,6 +219,7 @@ class DDECCT(nn.Module):
         yt_1[t==0] = yt[t==0] # if some codeword has 0 synd. keep it as is
         return (yt_1), t
 
+
     def p_sample_loop(self, cur_y):
         #Iterative sampling from the real p dist.
         res = []
@@ -217,6 +234,7 @@ class DDECCT(nn.Module):
         idx = torch.arange(aa.shape[1], 0, -1)
         idx_conv = torch.argmax(aa * idx, 1, keepdim=True)
         return cur_y, res, idx_conv.view(-1), synd_all
+
 
   #################################  
     def loss(self,x_0):
@@ -234,37 +252,41 @@ class DDECCT(nn.Module):
         output = self(yt.to(self.device), sum_syndrome.to(self.device))
         z_mul = (yt *x_0)
         return F.binary_cross_entropy_with_logits(output, sign_to_bin(torch.sign(z_mul.to(self.device))))
-    #################################
-    #################################
-    def get_mask(self, code, no_mask=False):
+
+
+    def get_mask(self, no_mask=False):
         if no_mask:
             self.src_mask = None
             return
         
-        src_mask = self.build_mask(code)
+        src_mask = self.build_mask()
+        print(src_mask)
         self.register_buffer('src_mask', src_mask)
 
-    def build_mask(self, code):
-            mask_size = code.n + code.pc_matrix.size(0)
+
+    def build_mask(self):
+            mask_size = self.encoder.n_ldpc + self.encoder.pcm.shape[0]
             mask = torch.eye(mask_size, mask_size)
-            for ii in range(code.n - code.k):
-                idx = torch.where(code.pc_matrix[ii] > 0)[0]
+            for ii in range(self.encoder.n_ldpc - self.encoder.k_ldpc):
+                idx = self.encoder.pcm[ii].indices #torch.where(self.encoder.pcm[ii].indices > 0)[0]
                 for jj in idx:
                     for kk in idx:
                         if jj != kk:
                             mask[jj, kk] += 1
                             mask[kk, jj] += 1
-                            mask[code.n + ii, jj] += 1
-                            mask[jj, code.n + ii] += 1
+                            mask[self.encoder.n_ldpc + ii, jj] += 1
+                            mask[jj, self.encoder.n_ldpc + ii] += 1
             src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
             return src_mask
         
-############################################################
+
+        
 class EMA(object):
     def __init__(self, mu=0.999,flag_run = True):
         self.mu = mu
         self.shadow = {}
         self.flag_run = flag_run
+
 
     def register(self, module):
         if self.flag_run:
@@ -272,11 +294,13 @@ class EMA(object):
                 if param.requires_grad:
                     self.shadow[name] = param.data.clone()
 
+
     def update(self, module):
         if self.flag_run:
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
+
 
 ############################################################
 ############################################################
