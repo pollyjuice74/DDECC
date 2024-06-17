@@ -11,10 +11,10 @@ from torch.utils.data import DataLoader
 from torch.utils import data
 from datetime import datetime
 import logging
-from Codes import *
+from DDECC.Codes import *
 import time
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from DDECC import DDECCT
+from DDECC.DDECC import DDECCT
 ##################################################################
 ##################################################################
 
