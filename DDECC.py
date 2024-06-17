@@ -302,8 +302,3 @@ class EMA(object):
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
 
 
-############################################################
-############################################################
-
-if __name__ == '__main__':
-    pass
