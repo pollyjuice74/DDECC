@@ -51,7 +51,7 @@ def pass_args_ddecc():
     
     # args.code = code
     
-    # args.N_steps = code.pc_matrix.shape[0]+5 #number of diffusion steps #####################
+    # args.N_steps = code.pc_matrix.shape[0]+5 #number of diffusion steps ##################### Important
     ####################################################################
     model_dir = os.path.join('DDECCT_Results',
                              args.code_type + '__Code_n_' + str(
