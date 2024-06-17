@@ -60,10 +60,10 @@ def pass_args_ddecc():
     handlers = [
         logging.FileHandler(os.path.join(model_dir, 'logging.txt'))]
     handlers += [logging.StreamHandler()]
-    logging.basicConfig(level=logging.INFO, format='%(message)s',
+    logging.basicConfig(level=print, format='%(message)s',
                         handlers=handlers)
-    logging.info(f"Path to model/logs: {model_dir}")
-    logging.info(args)
+    print(f"Path to model/logs: {model_dir}")
+    print(args)
 
-    main(args)
+    return args
 
