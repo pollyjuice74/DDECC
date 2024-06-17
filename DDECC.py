@@ -135,23 +135,23 @@ class PositionwiseFeedForward(nn.Module):
 
 
 class DDECCT(nn.Module):
-    def __init__(self, args,device, dropout=0):
+    def __init__(self, args, dropout=0):
         super(DDECCT, self).__init__()
         ####
         self.n_steps = args.N_steps
         self.d_model = args.d_model
         self.sigma = args.sigma
         self.register_buffer('pc_matrix', args.code.pc_matrix.transpose(0, 1).float())
-        self.device = device
+        # self.device = device
         #
         betas = torch.linspace(1e-3, 1e-2, self.n_steps)
         betas = betas*0+self.sigma
         self.betas = betas.view(-1,1)
         self.betas_bar =  torch.cumsum(self.betas, 0).view(-1,1)
         self.ema = EMA(0.9,flag_run=True)
-        ###
+
         self.line_search = False
-        ###
+
         code = args.code
         c = copy.deepcopy
         attn = MultiHeadedAttention(args.h, args.d_model)
@@ -167,7 +167,7 @@ class DDECCT(nn.Module):
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
         
         self.get_mask(code)
-        ###
+
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
@@ -240,8 +240,11 @@ class DDECCT(nn.Module):
         if no_mask:
             self.src_mask = None
             return
+        
+        src_mask = self.build_mask(code)
+        self.register_buffer('src_mask', src_mask)
 
-        def build_mask(code):
+    def build_mask(self, code):
             mask_size = code.n + code.pc_matrix.size(0)
             mask = torch.eye(mask_size, mask_size)
             for ii in range(code.n - code.k):
@@ -255,8 +258,7 @@ class DDECCT(nn.Module):
                             mask[jj, code.n + ii] += 1
             src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
             return src_mask
-        src_mask = build_mask(code)
-        self.register_buffer('src_mask', src_mask)
+        
 ############################################################
 class EMA(object):
     def __init__(self, mu=0.999,flag_run = True):
