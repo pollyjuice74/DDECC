@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import copy
-from Codes import sign_to_bin, bin_to_sign
+from DDECC.Codes import sign_to_bin, bin_to_sign
 import numpy as np
 
 ############################################################
