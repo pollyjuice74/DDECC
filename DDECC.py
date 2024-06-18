@@ -188,7 +188,7 @@ class DDECCT(nn.Module):
 
 
     def forward(self, y, time_step):
-        magnitude = torch.abs(y)
+        magnitude = torch.abs(y) # m = H @ y.T
         syndrome = torch.matmul(sign_to_bin(torch.sign(y)).long().float(),
                                 self.pc_matrix) % 2
         syndrome = bin_to_sign(syndrome)
