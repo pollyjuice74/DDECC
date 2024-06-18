@@ -173,10 +173,13 @@ class DDECCT(nn.Module):
 
         self.src_embed = torch.nn.Parameter(torch.empty(
             (encoder._n_ldpc + encoder.pcm.shape[0], args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
+                     
         self.decoder = Encoder(EncoderLayer(
             args.d_model, c(attn), c(ff), dropout), args.N_dec)
+        
         self.oned_final_embed = torch.nn.Sequential(
             *[nn.Linear(args.d_model, 1)])
+        
         self.out_fc = nn.Linear(encoder._n_ldpc + encoder.pcm.shape[0], encoder._n_ldpc) #code.n + code.pc_matrix.size(0), code.n)
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
         
