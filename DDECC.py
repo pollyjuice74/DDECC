@@ -191,15 +191,19 @@ class DDECCT(nn.Module):
 
 
     def forward(self, y, time_step):
-        magnitude = torch.abs(y) # m = H @ y.T
         syndrome = torch.matmul(sign_to_bin(torch.sign(y)).long().float(),
                                 self.pc_matrix) % 2
         syndrome = bin_to_sign(syndrome)
+        magnitude = torch.abs(y) # m = H @ y.T
+        
         emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1)
         emb = self.src_embed.unsqueeze(0) * emb
-        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model)
+        
+        # Diffusion time steps
+        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix 
+        
         emb = time_emb * emb
-        emb = self.decoder(emb, self.src_mask,time_emb)
+        emb = self.decoder(emb, self.src_mask,time_emb) # attention
         return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
 
 
