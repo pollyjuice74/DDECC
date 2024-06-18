@@ -249,13 +249,13 @@ class DDECCT(nn.Module):
         t = torch.cat([t, self.n_steps - t - 1], dim=0)[:x_0.shape[0]].long()
         e = torch.randn_like(x_0)
         noise_factor = torch.sqrt(self.betas_bar[t]).to(x_0.device)
-        #
+        
         h = torch.from_numpy(np.random.rayleigh(x_0.size(0),x_0.size(1))).float()
         h = 1.
         yt = h*x_0 * 1 + e * noise_factor
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),
         self.pc_matrix) % 2).sum(-1).long()
-        #
+        
         output = self(yt.to(self.device), sum_syndrome.to(self.device))
         z_mul = (yt *x_0)
         return F.binary_cross_entropy_with_logits(output, sign_to_bin(torch.sign(z_mul.to(self.device))))
