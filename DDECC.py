@@ -134,6 +134,7 @@ class PositionwiseFeedForward(nn.Module):
 ############################################################
 
 
+
 class DDECCT(nn.Module):
     def __init__(self, args, encoder, decoder,
                  device, dropout=0):
@@ -191,27 +192,6 @@ class DDECCT(nn.Module):
                 nn.init.xavier_uniform_(p)
 
 
-    def forward(self, y, time_step):
-        syndrome = torch.matmul(sign_to_bin(torch.sign(y)).long().float(),
-                                self.pc_matrix) % 2
-        syndrome = bin_to_sign(syndrome)
-        magnitude = torch.abs(y) # m = H @ y.T
-        
-        emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1)
-        emb = self.src_embed.unsqueeze(0) * emb
-        
-        # Diffusion time steps
-        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix 
-        # d_model shaped nodes 'overseeing' the attn in the network
-        # could add a (1, time_embed.size) 'overseeing' attn vector
-        
-        emb = time_emb * emb
-        emb = self.decoder(emb, self.src_mask,time_emb) # attention
-
-        # removes (d_model, n + m) shaped dims
-        return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
-
-
     def p_sample(self, yt):
         # Single sampling from the real p dist.
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),self.pc_matrix) % 2).round().long().sum(-1)
@@ -264,6 +244,7 @@ class DDECCT(nn.Module):
         output = self(yt.to(self.device), sum_syndrome.to(self.device))
         z_mul = (yt *x_0)
         return F.binary_cross_entropy_with_logits(output, sign_to_bin(torch.sign(z_mul.to(self.device))))
+  #################################  
 
 
     def get_mask(self, no_mask=False):
@@ -292,6 +273,26 @@ class DDECCT(nn.Module):
             return src_mask
         
 
+    def forward(self, y, time_step):
+        syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
+        syndrome = bin_to_sign(syndrome)
+        magnitude = torch.abs(y) # m = H @ y.T
+        print(magnitude, syndrome)
+        
+        emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1)
+        emb = self.src_embed.unsqueeze(0) * emb
+        
+        # Diffusion time steps
+        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix 
+        # d_model shaped nodes 'overseeing' the attn in the network
+        # could add a (1, time_embed.size) 'overseeing' attn vector
+        
+        emb = time_emb * emb
+        emb = self.decoder(emb, self.src_mask,time_emb) # attention
+
+        # removes (d_model, n + m) shaped dims
+        return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
+
         
 class EMA(object):
     def __init__(self, mu=0.999,flag_run = True):
@@ -312,3 +313,5 @@ class EMA(object):
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
+
+
