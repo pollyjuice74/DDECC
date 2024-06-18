@@ -162,6 +162,7 @@ class DDECCT(nn.Module):
         betas = betas*0+self.sigma
         self.betas = betas.view(-1,1)
         self.betas_bar =  torch.cumsum(self.betas, 0).view(-1,1)
+
         self.ema = EMA(0.9,flag_run=True)
 
         self.line_search = False
@@ -201,14 +202,18 @@ class DDECCT(nn.Module):
         
         # Diffusion time steps
         time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix 
+        # d_model shaped nodes 'overseeing' the attn in the network
+        # could add a (1, time_embed.size) 'overseeing' attn vector
         
         emb = time_emb * emb
         emb = self.decoder(emb, self.src_mask,time_emb) # attention
+
+        # removes (d_model, n + m) shaped dims
         return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
 
 
     def p_sample(self, yt):
-        #Single sampling from the real p dist.
+        # Single sampling from the real p dist.
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),self.pc_matrix) % 2).round().long().sum(-1)
         # assert sum_syndrome.max() <= self.pc_matrix.shape[1] and sum_syndrome.min() >= 0
         t = sum_syndrome.cpu()
@@ -228,7 +233,7 @@ class DDECCT(nn.Module):
 
 
     def p_sample_loop(self, cur_y):
-        #Iterative sampling from the real p dist.
+        # Iterative sampling from the real p dist.
         res = []
         synd_all = []
         for it in range(self.pc_matrix.shape[1]):
@@ -255,7 +260,7 @@ class DDECCT(nn.Module):
         yt = h*x_0 * 1 + e * noise_factor
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),
         self.pc_matrix) % 2).sum(-1).long()
-        
+
         output = self(yt.to(self.device), sum_syndrome.to(self.device))
         z_mul = (yt *x_0)
         return F.binary_cross_entropy_with_logits(output, sign_to_bin(torch.sign(z_mul.to(self.device))))
@@ -307,5 +312,3 @@ class EMA(object):
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
-
-
