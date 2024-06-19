@@ -142,8 +142,9 @@ class DDECCT(nn.Module):
         super(DDECCT, self).__init__()
 
         self.encoder = encoder
-
-        self.n_steps = encoder.pcm.shape[0] # pcm.size[0] + 5
+        encoder._m = encoder._n - encoder._k # m = n-k
+                     
+        self.n_steps = encoder._m + 5 # m + 5
         self.d_model = args.d_model
         self.sigma = args.sigma
 
@@ -173,7 +174,7 @@ class DDECCT(nn.Module):
         ff = PositionwiseFeedForward(args.d_model, args.d_model*4, dropout)
 
         self.src_embed = torch.nn.Parameter(torch.empty(
-            (encoder._n_ldpc + encoder.pcm.shape[0], args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
+            (encoder._n + encoder._m, args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
                      
         self.decoder = Encoder(EncoderLayer(
             args.d_model, c(attn), c(ff), dropout), args.N_dec)
@@ -181,7 +182,7 @@ class DDECCT(nn.Module):
         self.oned_final_embed = torch.nn.Sequential(
             *[nn.Linear(args.d_model, 1)])
         
-        self.out_fc = nn.Linear(encoder._n_ldpc + encoder.pcm.shape[0], encoder._n_ldpc) #code.n + code.pc_matrix.size(0), code.n)
+        self.out_fc = nn.Linear(encoder._n + encoder._m, encoder._n) #code.n + code.pc_matrix.size(0), code.n)
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
         
         self.get_mask()
@@ -257,17 +258,19 @@ class DDECCT(nn.Module):
 
 
     def build_mask(self):
-            mask_size = self.encoder.n_ldpc + self.encoder.pcm.shape[0]
+            mask_size = 2*self.encoder._n - self.encoder._k
             mask = torch.eye(mask_size, mask_size)
-            for ii in range(self.encoder.n_ldpc - self.encoder.k_ldpc):
-                idx = self.encoder.pcm[ii].indices #torch.where(self.encoder.pcm[ii].indices > 0)[0]
+        
+            for ii in range(self.encoder.n - self.encoder.k): # m
+                idx = self.encoder.pcm[ii].indices #idx = torch.where(self.encoder.pcm[ii].indices > 0)[0]
                 for jj in idx:
                     for kk in idx:
                         if jj != kk:
                             mask[jj, kk] += 1
                             mask[kk, jj] += 1
-                            mask[self.encoder.n_ldpc + ii, jj] += 1
-                            mask[jj, self.encoder.n_ldpc + ii] += 1
+                            mask[self.encoder._n + ii, jj] += 1
+                            mask[jj, self.encoder._n + ii] += 1
+                            
             src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
             return src_mask
         
