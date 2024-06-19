@@ -136,13 +136,12 @@ class PositionwiseFeedForward(nn.Module):
 
 
 class DDECCT(nn.Module):
-    def __init__(self, args, encoder, decoder,
+    def __init__(self, args, encoder,
                  device, dropout=0):
       
         super(DDECCT, self).__init__()
 
         self.encoder = encoder
-        self.decoder = decoder
 
         self.n_steps = encoder.pcm.shape[0] # pcm.size[0] + 5
         self.d_model = args.d_model
