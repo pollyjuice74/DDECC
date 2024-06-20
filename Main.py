@@ -15,15 +15,13 @@ from DDECC.Codes import *
 import time
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from DDECC.DDECC import DDECCT
-##################################################################
-##################################################################
+
 
 def set_seed(seed=42):
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
 
-##################################################################
 
 
 class FEC_Dataset(data.Dataset):
@@ -59,8 +57,6 @@ class FEC_Dataset(data.Dataset):
         return m.float(), x.float(), z.float(), y.float(), magnitude.float(), syndrome.float()#, torch.tensor([std_noise]).float()
 
 
-##################################################################
-##################################################################
 
 def train(model, device, train_loader, optimizer, epoch, LR):
     model.train()
@@ -82,7 +78,6 @@ def train(model, device, train_loader, optimizer, epoch, LR):
     logging.info(f'Epoch {epoch} Train Time {time.time() - t}s\n')
     return cum_loss / cum_samples
 
-##################################################################
 
 def test(model, device, test_loader_list, EbNo_range_test, min_FER=100, max_cum_count=1e7, min_cum_count=1e5):
     model.eval()
@@ -143,10 +138,6 @@ def test(model, device, test_loader_list, EbNo_range_test, min_FER=100, max_cum_
     logging.info(f'# of testing samples: {cum_samples_all}\n Test Time {time.time() - t} s\n')
     return test_loss_ber_list, test_loss_fer_list
 
-##################################################################
-##################################################################
-##################################################################
-
 
 def main(args):
     code = args.code
@@ -191,6 +182,3 @@ def main(args):
     model.line_search = True
     test(model, device, test_dataloader_list, EbNo_range_test,min_FER=100)
 
-##################################################################################################################
-##################################################################################################################
-##################################################################################################################
