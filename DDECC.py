@@ -134,17 +134,16 @@ class PositionwiseFeedForward(nn.Module):
 ############################################################
 
 
-
 class DDECCT(nn.Module):
     def __init__(self, args, encoder,
                  device, dropout=0):
-      
+
         super(DDECCT, self).__init__()
 
         self.encoder = encoder
-        encoder._m = encoder._n - encoder._k # m = n-k
-                     
-        self.n_steps = encoder._m + 5 # m + 5
+        encoder._m_ldpc = encoder._n_ldpc - encoder._k_ldpc # m_ldpc = n_ldpc-k_ldpc
+
+        self.n_steps = encoder._m_ldpc + 5 # m_ldpc + 5
         self.d_model = args.d_model
         self.sigma = args.sigma
 
@@ -174,17 +173,17 @@ class DDECCT(nn.Module):
         ff = PositionwiseFeedForward(args.d_model, args.d_model*4, dropout)
 
         self.src_embed = torch.nn.Parameter(torch.empty(
-            (encoder._n + encoder._m, args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
-                     
+            (encoder._n_ldpc + encoder._m_ldpc, args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
+
         self.decoder = Encoder(EncoderLayer(
             args.d_model, c(attn), c(ff), dropout), args.N_dec)
-        
+
         self.oned_final_embed = torch.nn.Sequential(
             *[nn.Linear(args.d_model, 1)])
-        
-        self.out_fc = nn.Linear(encoder._n + encoder._m, encoder._n) #code.n + code.pc_matrix.size(0), code.n)
+
+        self.out_fc = nn.Linear(encoder._n_ldpc + encoder._m_ldpc, encoder._n) # want a shape (1,n) original codeword sent #code.n + code.pc_matrix.size(0), code.n)
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
-        
+
         self.get_mask()
 
         for p in self.parameters():
@@ -222,19 +221,20 @@ class DDECCT(nn.Module):
             res.append(cur_y)
         synd_all = torch.stack(synd_all).t().cpu()
         # Chose the biggest iteration that reaches 0 synd.
-        aa = (synd_all == 0).int()*2-1 
+        aa = (synd_all == 0).int()*2-1
         idx = torch.arange(aa.shape[1], 0, -1)
         idx_conv = torch.argmax(aa * idx, 1, keepdim=True)
         return cur_y, res, idx_conv.view(-1), synd_all
 
 
-  #################################  
+  #################################
     def loss(self,x_0):
+        print(x_0)
         t = torch.randint(0, self.n_steps, size=(x_0.shape[0] // 2 + 1,))
         t = torch.cat([t, self.n_steps - t - 1], dim=0)[:x_0.shape[0]].long()
         e = torch.randn_like(x_0)
         noise_factor = torch.sqrt(self.betas_bar[t]).to(x_0.device)
-        
+
         h = torch.from_numpy(np.random.rayleigh(x_0.size(0),x_0.size(1))).float()
         h = 1.
         yt = h*x_0 * 1 + e * noise_factor
@@ -244,56 +244,79 @@ class DDECCT(nn.Module):
         output = self(yt.to(self.device), sum_syndrome.to(self.device))
         z_mul = (yt *x_0)
         return F.binary_cross_entropy_with_logits(output, sign_to_bin(torch.sign(z_mul.to(self.device))))
-  #################################  
+  #################################
 
 
     def get_mask(self, no_mask=False):
         if no_mask:
             self.src_mask = None
             return
-        
+
         src_mask = self.build_mask()
         print(src_mask)
         self.register_buffer('src_mask', src_mask)
 
 
     def build_mask(self):
-            mask_size = 2*self.encoder._n - self.encoder._k
-            mask = torch.eye(mask_size, mask_size)
-        
-            for ii in range(self.encoder.n - self.encoder.k): # m
-                idx = self.encoder.pcm[ii].indices #idx = torch.where(self.encoder.pcm[ii].indices > 0)[0]
-                for jj in idx:
-                    for kk in idx:
-                        if jj != kk:
-                            mask[jj, kk] += 1
-                            mask[kk, jj] += 1
-                            mask[self.encoder._n + ii, jj] += 1
-                            mask[jj, self.encoder._n + ii] += 1
-                            
-            src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
-            return src_mask
-        
+        mask_size = 2*self.encoder._n_ldpc - self.encoder._k_ldpc
+        mask = torch.eye(mask_size, mask_size)
 
-    def forward(self, y, time_step):
-        syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
-        syndrome = bin_to_sign(syndrome)
+        for ii in range(self.encoder._n_ldpc - self.encoder._k_ldpc): # m_ldpc, check node
+            idx = self.encoder.pcm[ii].indices #idx = torch.where(self.encoder.pcm[ii].indices > 0)[0]
+            for jj in idx:
+                for kk in idx:
+                    if jj != kk:
+                        mask[jj, kk] += 1
+                        mask[kk, jj] += 1
+                        mask[self.encoder._n_ldpc + ii, jj] += 1
+                        mask[jj, self.encoder._n_ldpc + ii] += 1
+
+        src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
+        return src_mask
+
+
+    def forward(self, llr, time_step):
+        # Ensure llr is a tensor
+        if isinstance(llr, tf.Tensor):
+            llr = torch.tensor(llr.numpy())
+        # Ensure time_step is a tensor
+        if isinstance(time_step, int):
+            time_step = torch.tensor([time_step], dtype=torch.long)
+        elif isinstance(time_step, list):
+            time_step = torch.tensor(time_step, dtype=torch.long)
+
+        print("\nDDECCT model")
+        
+        # Considering syndrome is now in llr terms, how to compute it with pcm?
+          # llr -> sign -> bin, or
+          # llr -> bin, bin @ pcm
+        y = (llr <= 0).float() # turn llr ixs that are <= 0 into 1, > 0 into 0
+        print("y: ", y.shape)
+
+        syndrome = torch.sparse.mm(self.pc_matrix, y.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
+        syndrome = bin_to_sign(syndrome).T
         magnitude = torch.abs(y) # m = H @ y.T
-        print(magnitude, syndrome)
-        
-        emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1)
-        emb = self.src_embed.unsqueeze(0) * emb
-        
+        print("magnitude: ", magnitude.shape)
+        print("syndrome: ", syndrome.shape)
+
+        emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1) # (9, n_ldpc + m_ldpc, 1)
+        emb = self.src_embed.unsqueeze(0) * emb # (9, n_ldpc + m_ldpc, 32) embeding size
+        print("emb: ", emb.shape)
+
         # Diffusion time steps
-        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix 
+        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix
         # d_model shaped nodes 'overseeing' the attn in the network
         # could add a (1, time_embed.size) 'overseeing' attn vector
-        
+        print("time_emb: ", time_emb.shape)
+
         emb = time_emb * emb
-        emb = self.decoder(emb, self.src_mask,time_emb) # attention
+        print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
+        emb = self.decoder(emb, self.src_mask, )#time_emb) # attention
+        print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
 
         # removes (d_model, n + m) shaped dims
         return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
+
 
         
 class EMA(object):
