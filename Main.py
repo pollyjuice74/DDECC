@@ -60,24 +60,31 @@ class FEC_Dataset(data.Dataset):
 
 
 
-def train(model, device, train_loader, optimizer, epoch, LR):
+def train(channel, model, optimizer, LR, iters=1000): #device, train_loader, optimizer, epoch, LR):
+    
     model.train()
     cum_loss = cum_samples = 0
     t = time.time()
-    for batch_idx, (m, x, z, y, magnitude, syndrome) in enumerate(
-            train_loader):
-        loss = model.loss(bin_to_sign(x)) # passing model(x)
+    
+    for i in range(iters):
+        # Create channel transmission
+        c, b, c_hat = channel.call(ebno_dbs)
+
+        # Why pass c and not c_hat?
+        loss = model.loss(bin_to_sign(c)) # passing model(x)
+        
         model.zero_grad()
         loss.backward()
         optimizer.step()
         model.ema.update(model) # update EMA
-        ###
+        
         cum_loss += loss.item() * x.shape[0]
         cum_samples += x.shape[0]
+        
         if (batch_idx+1) % 500 == 0 or batch_idx == len(train_loader) - 1:
-            logging.info(
-                f'Training epoch {epoch}, Batch {batch_idx + 1}/{len(train_loader)}: LR={LR:.2e}, Loss={cum_loss / cum_samples:.5e}')
-    logging.info(f'Epoch {epoch} Train Time {time.time() - t}s\n')
+            print(f'Training iter {i}, Batch {batch_idx + 1}/{len(train_loader)}: LR={LR:.2e}, Loss={cum_loss / cum_samples:.5e}')
+    print(f'Iter {i} Train Time {time.time() - t}s\n')
+    
     return cum_loss / cum_samples
 
 
