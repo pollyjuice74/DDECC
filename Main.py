@@ -68,7 +68,7 @@ def train(channel, model, optimizer, LR, iters=1000): #device, train_loader, opt
     
     for i in range(iters):
         # Create channel transmission
-        c, b, c_hat = channel.call()
+        c, b, c_hat = channel.call() 
 
         # Why pass c and not c_hat?
         loss = model.loss(bin_to_sign(c)) # passing model(x)
