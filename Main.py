@@ -68,11 +68,11 @@ def train(model, device, train_loader, optimizer, epoch, LR):
     t = time.time()
     for batch_idx, (m, x, z, y, magnitude, syndrome) in enumerate(
             train_loader):
-        loss = model.loss(bin_to_sign(x))
+        loss = model.loss(bin_to_sign(x)) # passing model(x)
         model.zero_grad()
         loss.backward()
         optimizer.step()
-        model.ema.update(model)
+        model.ema.update(model) # update EMA
         ###
         cum_loss += loss.item() * x.shape[0]
         cum_samples += x.shape[0]
