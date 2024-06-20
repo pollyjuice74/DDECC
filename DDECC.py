@@ -163,8 +163,6 @@ class DDECCT(nn.Module):
         self.betas = betas.view(-1,1)
         self.betas_bar =  torch.cumsum(self.betas, 0).view(-1,1)
 
-        self.ema = EMA(0.9,flag_run=True)
-
         self.line_search = False
 
         # code = args.code
@@ -190,6 +188,7 @@ class DDECCT(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
+        self.ema = EMA(self, 0.9)
 
     def p_sample(self, yt):
         # Single sampling from the real p dist.
@@ -229,20 +228,40 @@ class DDECCT(nn.Module):
 
   #################################
     def loss(self,x_0):
-        print(x_0)
+        print("\nDDECC Loss")    
+        # Convert NumPy array to PyTorch tensor
+        x_0_np = x_0.numpy()
+        x_0 = torch.tensor(x_0_np)
+        print("x_0: ", x_0.shape)
+
         t = torch.randint(0, self.n_steps, size=(x_0.shape[0] // 2 + 1,))
+        print("t: ", t.shape)
         t = torch.cat([t, self.n_steps - t - 1], dim=0)[:x_0.shape[0]].long()
+        print("t: ", t.shape)
+
         e = torch.randn_like(x_0)
+        print("e: ", e.shape)
+
         noise_factor = torch.sqrt(self.betas_bar[t]).to(x_0.device)
+        print("noise_factor: ", noise_factor.shape)
 
         h = torch.from_numpy(np.random.rayleigh(x_0.size(0),x_0.size(1))).float()
+        print("h: ", h.shape)
         h = 1.
+
         yt = h*x_0 * 1 + e * noise_factor
+        print("yt: ", yt.shape)
+
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),
         self.pc_matrix) % 2).sum(-1).long()
+        print("sum_syndrome: ", sum_syndrome.shape)
 
         output = self(yt.to(self.device), sum_syndrome.to(self.device))
+        print("output: ", output.shape)
+
         z_mul = (yt *x_0)
+        print("z_mul: ", z_mul.shape)
+
         return F.binary_cross_entropy_with_logits(output, sign_to_bin(torch.sign(z_mul.to(self.device))))
   #################################
 
@@ -320,23 +339,18 @@ class DDECCT(nn.Module):
 
         
 class EMA(object):
-    def __init__(self, mu=0.999,flag_run = True):
+    def __init__(self, module, mu=0.999):
         self.mu = mu
         self.shadow = {}
-        self.flag_run = flag_run
-
+        self.register(module)
 
     def register(self, module):
-        if self.flag_run:
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name] = param.data.clone()
 
 
     def update(self, module):
-        if self.flag_run:
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
-
-
