@@ -35,9 +35,11 @@ class FEC_Dataset(data.Dataset):
         self.zero_word = torch.zeros((self.code.k)).long() if zero_cw else None
         self.zero_cw = torch.zeros((self.code.n)).long() if zero_cw else None
 
+    
     def __len__(self):
         return self.len
 
+    
     def __getitem__(self, index):
         if self.zero_cw is None:
             m = torch.randint(0, 2, (1, self.code.k)).squeeze()
