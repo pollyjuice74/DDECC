@@ -189,7 +189,51 @@ class DDECCT(nn.Module):
                 nn.init.xavier_uniform_(p)
 
         self.ema = EMA(self, 0.9)
+                     
 
+    def forward(self, llr, time_step):
+        # Ensure llr is a tensor
+        if isinstance(llr, tf.Tensor):
+            llr = torch.tensor(llr.numpy())
+        # Ensure time_step is a tensor
+        if isinstance(time_step, int):
+            time_step = torch.tensor([time_step], dtype=torch.long)
+        elif isinstance(time_step, list):
+            time_step = torch.tensor(time_step, dtype=torch.long)
+
+        print("\nDDECCT model")
+        
+        # Considering syndrome is now in llr terms, how to compute it with pcm?
+          # llr -> sign -> bin, or
+          # llr -> bin, bin @ pcm
+        y = (llr <= 0).float() # turn llr ixs that are <= 0 into 1, > 0 into 0
+        print("y: ", y.shape)
+
+        syndrome = torch.sparse.mm(self.pc_matrix, y.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
+        syndrome = bin_to_sign(syndrome).T
+        magnitude = torch.abs(y) # m = H @ y.T
+        print("magnitude: ", magnitude.shape)
+        print("syndrome: ", syndrome.shape)
+
+        emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1) # (9, n_ldpc + m_ldpc, 1)
+        emb = self.src_embed.unsqueeze(0) * emb # (9, n_ldpc + m_ldpc, 32) embeding size
+        print("emb: ", emb.shape)
+
+        # Diffusion time steps
+        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix
+        # d_model shaped nodes 'overseeing' the attn in the network
+        # could add a (1, time_embed.size) 'overseeing' attn vector
+        print("time_emb: ", time_emb.shape)
+
+        emb = time_emb * emb
+        print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
+        emb = self.decoder(emb, self.src_mask, )#time_emb) # attention
+        print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
+
+        # removes (d_model, n + m) shaped dims
+        return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
+
+    
     def p_sample(self, yt):
         # Single sampling from the real p dist.
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),self.pc_matrix) % 2).round().long().sum(-1)
@@ -292,49 +336,6 @@ class DDECCT(nn.Module):
 
         src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
         return src_mask
-
-
-    def forward(self, llr, time_step):
-        # Ensure llr is a tensor
-        if isinstance(llr, tf.Tensor):
-            llr = torch.tensor(llr.numpy())
-        # Ensure time_step is a tensor
-        if isinstance(time_step, int):
-            time_step = torch.tensor([time_step], dtype=torch.long)
-        elif isinstance(time_step, list):
-            time_step = torch.tensor(time_step, dtype=torch.long)
-
-        print("\nDDECCT model")
-        
-        # Considering syndrome is now in llr terms, how to compute it with pcm?
-          # llr -> sign -> bin, or
-          # llr -> bin, bin @ pcm
-        y = (llr <= 0).float() # turn llr ixs that are <= 0 into 1, > 0 into 0
-        print("y: ", y.shape)
-
-        syndrome = torch.sparse.mm(self.pc_matrix, y.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
-        syndrome = bin_to_sign(syndrome).T
-        magnitude = torch.abs(y) # m = H @ y.T
-        print("magnitude: ", magnitude.shape)
-        print("syndrome: ", syndrome.shape)
-
-        emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1) # (9, n_ldpc + m_ldpc, 1)
-        emb = self.src_embed.unsqueeze(0) * emb # (9, n_ldpc + m_ldpc, 32) embeding size
-        print("emb: ", emb.shape)
-
-        # Diffusion time steps
-        time_emb = self.time_embed(time_step).view(-1, 1, self.d_model) # time_step is the ix
-        # d_model shaped nodes 'overseeing' the attn in the network
-        # could add a (1, time_embed.size) 'overseeing' attn vector
-        print("time_emb: ", time_emb.shape)
-
-        emb = time_emb * emb
-        print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
-        emb = self.decoder(emb, self.src_mask, )#time_emb) # attention
-        print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
-
-        # removes (d_model, n + m) shaped dims
-        return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
 
 
         
