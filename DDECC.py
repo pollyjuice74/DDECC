@@ -189,7 +189,11 @@ class DDECCT(nn.Module):
         self.oned_final_embed = torch.nn.Sequential(
             *[nn.Linear(args.d_model, 1)])
 
-        self.out_fc = nn.Linear(encoder._n_ldpc + encoder._m_ldpc, encoder._n) # want a shape (1,n) original codeword sent #code.n + code.pc_matrix.size(0), code.n)
+        # want a shape (1,n) original codeword sent #code.n + code.pc_matrix.size(0), code.n)
+        self.out_fc = nn.Sequential(
+            nn.Linear(encoder._n_ldpc + encoder._m_ldpc, encoder._n),
+            nn.Sigmoid(),  # Convert logits to probabilities
+        )
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
 
         self.get_mask()
@@ -199,8 +203,8 @@ class DDECCT(nn.Module):
                 nn.init.xavier_uniform_(p)
 
         self.ema = EMA(self, 0.9)
-                     
 
+    
     def forward(self, llr, time_step):
         # Ensure llr is a tensor
         if isinstance(llr, tf.Tensor):
@@ -223,7 +227,7 @@ class DDECCT(nn.Module):
         syndrome = bin_to_sign(syndrome).T
         magnitude = torch.abs(y) # m = H @ y.T
         print("magnitude: ", magnitude.shape)
-        print("syndrome: ", syndrome.shape)
+        print("syndrome: ", syndrome.shape, syndrome)
 
         emb = torch.cat([magnitude, syndrome], -1).unsqueeze(-1) # (9, n_ldpc + m_ldpc, 1)
         emb = self.src_embed.unsqueeze(0) * emb # (9, n_ldpc + m_ldpc, 32) embeding size
@@ -242,10 +246,10 @@ class DDECCT(nn.Module):
 
         # removes (d_model, n + m) shaped dims
         out_fc = self.out_fc(self.oned_final_embed(emb).squeeze(-1))
-        print("out_fc: ", out_fc.shape)
+        print("out_fc: ", out_fc.shape, out_fc)
         return out_fc
 
-    
+
     def p_sample(self, yt):
         # Single sampling from the real p dist.
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),self.pc_matrix) % 2).round().long().sum(-1)
@@ -367,3 +371,6 @@ class EMA(object):
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
+
+
+
