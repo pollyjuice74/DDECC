@@ -144,6 +144,7 @@ class PositionwiseFeedForward(nn.Module):
 ############################################################
 
 
+
 class DDECCT(nn.Module):
     def __init__(self, args, encoder,
                  device, dropout=0):
@@ -191,7 +192,7 @@ class DDECCT(nn.Module):
 
         # want a shape (1,n) original codeword sent #code.n + code.pc_matrix.size(0), code.n)
         self.out_fc = nn.Sequential(
-            nn.Linear(encoder._n_ldpc + encoder._m_ldpc, encoder._n),
+            nn.Linear(encoder._n_ldpc + encoder._m_ldpc, encoder._k),
             nn.Sigmoid(),  # Convert logits to probabilities
         )
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
@@ -205,10 +206,10 @@ class DDECCT(nn.Module):
         self.ema = EMA(self, 0.9)
 
     
-    def forward(self, llr, time_step):
-        # Ensure llr is a tensor
-        if isinstance(llr, tf.Tensor):
-            llr = torch.tensor(llr.numpy())
+    def forward(self, r_cw, time_step):
+        # Ensure r_cw is a tensor
+        if isinstance(r_cw, tf.Tensor):
+            r_cw = torch.tensor(r_cw.numpy())
         # Ensure time_step is a tensor
         if isinstance(time_step, int):
             time_step = torch.tensor([time_step], dtype=torch.long)
@@ -216,16 +217,10 @@ class DDECCT(nn.Module):
             time_step = torch.tensor(time_step, dtype=torch.long)
 
         print("\nDDECCT model")
-        
-        # Considering syndrome is now in llr terms, how to compute it with pcm?
-          # llr -> sign -> bin, or
-          # llr -> bin, bin @ pcm
-        y = (llr <= 0).float() # turn llr ixs that are <= 0 into 1, > 0 into 0
-        print("y: ", y.shape)
 
-        syndrome = torch.sparse.mm(self.pc_matrix, y.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
+        syndrome = torch.sparse.mm(self.pc_matrix, r_cw.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
         syndrome = bin_to_sign(syndrome).T
-        magnitude = torch.abs(y) # m = H @ y.T
+        magnitude = torch.abs(r_cw) # m = H @ y.T
         print("magnitude: ", magnitude.shape)
         print("syndrome: ", syndrome.shape, syndrome)
 
@@ -371,6 +366,8 @@ class EMA(object):
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
+
+
 
 
 
