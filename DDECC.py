@@ -231,7 +231,9 @@ class DDECCT(nn.Module):
         print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
 
         # removes (d_model, n + m) shaped dims
-        return self.out_fc(self.oned_final_embed(emb).squeeze(-1))
+        out_fc = self.out_fc(self.oned_final_embed(emb).squeeze(-1))
+        print("out_fc: ", out_fc.shape)
+        return out_fc
 
     
     def p_sample(self, yt):
