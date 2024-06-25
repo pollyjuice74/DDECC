@@ -6,7 +6,7 @@ import torch
 import logging
 from datetime import datetime
 
-def pass_args_ddecc():
+def pass_args_ddecc(code_type='LDPC', k=80, n=121):
     parser = argparse.ArgumentParser(description='PyTorch DDPM_ECCT')
     parser.add_argument('--epochs', type=int, default=2000)
     parser.add_argument('--workers', type=int, default=4)
@@ -17,10 +17,12 @@ def pass_args_ddecc():
     parser.add_argument('--seed', type=int, default=42)
 
     # Code args
-    parser.add_argument('--code_type', type=str, default='POLAR',
+    ####################################################################
+    parser.add_argument('--code_type', type=str, default=code_type, ### SELECTS CODE TYPE ###
                         choices=['BCH', 'POLAR', 'LDPC', 'CCSDS', 'MACKAY'])
-    parser.add_argument('--code_k', type=int, default=32)
-    parser.add_argument('--code_n', type=int, default=64)
+    parser.add_argument('--code_k', type=int, default=k) ### SELECTS K ###
+    parser.add_argument('--code_n', type=int, default=n) ### SELECTS N ###
+    ####################################################################
 
     # model args
     parser.add_argument('--N_dec', type=int, default=2)
@@ -35,7 +37,6 @@ def pass_args_ddecc():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
     set_seed(args.seed)
-    ####################################################################
 
     class Code():
         pass
@@ -44,14 +45,14 @@ def pass_args_ddecc():
     code.n = args.code_n
     code.code_type = args.code_type
 
-    # UPDATE
-    # G, H = Get_Generator_and_Parity(code)
-    # code.generator_matrix = torch.from_numpy(G).transpose(0, 1).long()
-    # code.pc_matrix = torch.from_numpy(H).long() 
+    UPDATE
+    G, H = Get_Generator_and_Parity(code)
+    code.generator_matrix = torch.from_numpy(G).transpose(0, 1).long()
+    code.pc_matrix = torch.from_numpy(H).long() 
     
-    # args.code = code
+    args.code = code
     
-    # args.N_steps = code.pc_matrix.shape[0]+5 #number of diffusion steps ##################### Important
+    args.N_steps = code.pc_matrix.shape[0]+5  ###################### Number of diffusion steps
     ####################################################################
     model_dir = os.path.join('DDECCT_Results',
                              args.code_type + '__Code_n_' + str(
