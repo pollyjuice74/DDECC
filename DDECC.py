@@ -206,21 +206,12 @@ class DDECCT(nn.Module):
         self.ema = EMA(self, 0.9)
 
     
-    def forward(self, r_cw, time_step):
-        # Ensure r_cw is a tensor
-        if isinstance(r_cw, tf.Tensor):
-            r_cw = torch.tensor(r_cw.numpy())
-        # Ensure time_step is a tensor
-        if isinstance(time_step, int):
-            time_step = torch.tensor([time_step], dtype=torch.long)
-        elif isinstance(time_step, list):
-            time_step = torch.tensor(time_step, dtype=torch.long)
-
+    def forward(self, y, time_step):
         print("\nDDECCT model")
 
-        syndrome = torch.sparse.mm(self.pc_matrix, r_cw.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
+        syndrome = torch.sparse.mm(self.pc_matrix, y.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
         syndrome = bin_to_sign(syndrome).T
-        magnitude = torch.abs(r_cw) # m = H @ y.T
+        magnitude = torch.abs(y) # m = H @ y.T
         print("magnitude: ", magnitude.shape)
         print("syndrome: ", syndrome.shape, syndrome)
 
