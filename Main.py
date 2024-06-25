@@ -88,10 +88,9 @@ def train(model, device, train_loader, optimizer, epoch, LR):
         ###
         cum_loss += loss.item() * x.shape[0]
         cum_samples += x.shape[0]
-        if (batch_idx+1) % 500 == 0 or batch_idx == len(train_loader) - 1:
-            logging.info(
-                f'Training epoch {epoch}, Batch {batch_idx + 1}/{len(train_loader)}: LR={LR:.2e}, Loss={cum_loss / cum_samples:.5e}')
-    logging.info(f'Epoch {epoch} Train Time {time.time() - t}s\n')
+        if (batch_idx+1) % 10 == 0 or batch_idx == len(train_loader) - 1:
+            print(f'Training epoch {epoch}, Batch {batch_idx + 1}/{len(train_loader)}: LR={LR:.2e}, Loss={cum_loss / cum_samples:.5e}')
+    print(f'Epoch {epoch} Train Time {time.time() - t}s\n')
     return cum_loss / cum_samples
 
 
@@ -122,9 +121,9 @@ def test(model, device, test_loader_list, EbNo_range_test, min_FER=100, max_cum_
                 cum_count += x.shape[0]
                 if (min_FER > 0 and test_fer > min_FER and cum_count > min_cum_count) or cum_count >= max_cum_count:
                     if cum_count >= 1e9:
-                        logging.info(f'Cum count reached EbN0:{EbNo_range_test[ii]}')
+                        print(f'Cum count reached EbN0:{EbNo_range_test[ii]}')
                     else:    
-                        logging.info(f'FER count treshold reached EbN0:{EbNo_range_test[ii]}')
+                        print(f'FER count treshold reached EbN0:{EbNo_range_test[ii]}')
                     break
             idx_conv_all = torch.stack(idx_conv_all).float()
             cum_samples_all.append(cum_count)
@@ -133,25 +132,25 @@ def test(model, device, test_loader_list, EbNo_range_test, min_FER=100, max_cum_
             for kk in range(len(test_ber_ddpm)):
                 test_ber_ddpm[kk] /= cum_count
                 test_fer_ddpm[kk] /= cum_count
-            logging.info(f'Test EbN0={EbNo_range_test[ii]}, BER={test_loss_ber_list}')
-            logging.info(f'Test EbN0={EbNo_range_test[ii]}, BER_DDPM={test_ber_ddpm}')
-            logging.info(f'Test EbN0={EbNo_range_test[ii]}, -ln(BER)_DDPM={[-np.log(elem) for elem in test_ber_ddpm]}')
-            logging.info(f'Test EbN0={EbNo_range_test[ii]}, FER_DDPM={test_fer_ddpm}')
-            logging.info(f'#It. to zero syndrome: Mean={idx_conv_all.mean()}, Std={idx_conv_all.std()}, Min={idx_conv_all.min()}, Max={idx_conv_all.max()}')
+            print(f'Test EbN0={EbNo_range_test[ii]}, BER={test_loss_ber_list}')
+            print(f'Test EbN0={EbNo_range_test[ii]}, BER_DDPM={test_ber_ddpm}')
+            print(f'Test EbN0={EbNo_range_test[ii]}, -ln(BER)_DDPM={[-np.log(elem) for elem in test_ber_ddpm]}')
+            print(f'Test EbN0={EbNo_range_test[ii]}, FER_DDPM={test_fer_ddpm}')
+            print(f'#It. to zero syndrome: Mean={idx_conv_all.mean()}, Std={idx_conv_all.std()}, Min={idx_conv_all.min()}, Max={idx_conv_all.max()}')
         ###
-        logging.info('Test FER ' + ' '.join(
+        print('Test FER ' + ' '.join(
             ['{}: {:.2e}'.format(ebno, elem) for (elem, ebno)
              in
              (zip(test_loss_fer_list, EbNo_range_test))]))
-        logging.info('Test BER ' + ' '.join(
+        print('Test BER ' + ' '.join(
             ['{}: {:.2e}'.format(ebno, elem) for (elem, ebno)
              in
              (zip(test_loss_ber_list, EbNo_range_test))]))
-        logging.info('Test -ln(BER) ' + ' '.join(
+        print('Test -ln(BER) ' + ' '.join(
             ['{}: {:.2e}'.format(ebno, -np.log(elem)) for (elem, ebno)
              in
              (zip(test_loss_ber_list, EbNo_range_test))]))
-    logging.info(f'# of testing samples: {cum_samples_all}\n Test Time {time.time() - t} s\n')
+    print(f'# of testing samples: {cum_samples_all}\n Test Time {time.time() - t} s\n')
     return test_loss_ber_list, test_loss_fer_list
 
 
@@ -165,8 +164,8 @@ def main(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=5e-6)
 
-    logging.info(model)
-    logging.info(f'# of Parameters: {np.sum([np.prod(p.shape) for p in model.parameters()])}')
+    print(model)
+    print(f'# of Parameters: {np.sum([np.prod(p.shape) for p in model.parameters()])}')
     #################################
     EbNo_range_test = range(4, 7)
     EbNo_range_train = range(2, 8)
@@ -185,16 +184,16 @@ def main(args):
         if loss < best_loss:
             best_loss = loss
             torch.save(model, os.path.join(args.path, 'best_model'))
-            logging.info(f'Model Saved')
+            print(f'Model Saved')
         if epoch % (args.epochs//2) == 0 or epoch in [1,25]:
             test(model, device, test_dataloader_list, EbNo_range_test,min_FER=50,max_cum_count=1e6,min_cum_count=1e4)
     ############
     ############
-    logging.info('Loading Best Model')
+    print('Loading Best Model')
     model = torch.load(os.path.join(args.path, 'best_model')).to(device)
-    logging.info('Regular Reverse Diffusion')
+    print('Regular Reverse Diffusion')
     test(model, device, test_dataloader_list, EbNo_range_test,min_FER=100)
-    logging.info('Line Search Reverse Diffusion')
+    print('Line Search Reverse Diffusion')
     model.line_search = True
     test(model, device, test_dataloader_list, EbNo_range_test,min_FER=100)
 
