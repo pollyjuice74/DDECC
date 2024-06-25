@@ -311,25 +311,22 @@ class DDECCT(nn.Module):
         src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
         return src_mask
 
-        
+
+
 class EMA(object):
-    def __init__(self, module, mu=0.999):
+    def __init__(self, mu=0.999,flag_run = True):
         self.mu = mu
         self.shadow = {}
-        self.register(module)
+        self.flag_run = flag_run
 
     def register(self, module):
+        if self.flag_run:
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name] = param.data.clone()
 
-
     def update(self, module):
+        if self.flag_run:
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
-
-
-
-
-
