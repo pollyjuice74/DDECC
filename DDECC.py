@@ -13,15 +13,6 @@ from DDECC.Codes import sign_to_bin, bin_to_sign
 import numpy as np
 
 
-import tensorflow as tf
-import numpy as np
-import scipy as sp # for sparse H matrix computations
-from tensorflow.keras.layers import Layer
-from sionna.fec.ldpc.encoding import LDPC5GEncoder
-from sionna.fec.utils import llr2mi
-import matplotlib.pyplot as plt
-
-
 ############################################################
 #   ECCT classes
 ############################################################
