@@ -200,7 +200,7 @@ class DDECCT(nn.Module):
 
         emb = time_emb * emb
         print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
-        emb = self.decoder(emb, self.src_mask, )#time_emb) # attention
+        emb = self.decoder(emb, self.src_mask, time_emb) # attention
         print("emb: ", emb.shape) #, " args.N_dec: ", self.args.N_dec)
 
         # removes (d_model, n + m) shaped dims
