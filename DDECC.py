@@ -141,58 +141,41 @@ class DDECCT(nn.Module):
                  device, dropout=0):
 
         super(DDECCT, self).__init__()
-
-        self.n_steps = args.N_steps + 5 # m_ldpc + 5
+                     
+        self.n_steps = args.N_steps
         self.d_model = args.d_model
         self.sigma = args.sigma
-
-        pcm_coo = encoder.pcm.tocoo() # Convert the SciPy sparse matrix to COO format
-
-        # Create a PyTorch sparse tensor from the COO format
-        indices = torch.tensor([pcm_coo.row, pcm_coo.col], dtype=torch.int64)
-        values = torch.tensor(pcm_coo.data, dtype=torch.float32)
-        shape = torch.Size(pcm_coo.shape)
-
-        # Register the sparse tensor as a buffer
-        self.register_buffer('pc_matrix', torch.sparse_coo_tensor(indices, values, shape)) # should be float
+                     
+        self.register_buffer('pc_matrix', args.code.pc_matrix.transpose(0, 1).float())
         self.device = device
-
+        
         betas = torch.linspace(1e-3, 1e-2, self.n_steps)
         betas = betas*0+self.sigma
         self.betas = betas.view(-1,1)
         self.betas_bar =  torch.cumsum(self.betas, 0).view(-1,1)
-
+        self.ema = EMA(0.9,flag_run=True)
+        
         self.line_search = False
-
-        # code = args.code
+        
+        code = args.code
         c = copy.deepcopy
         attn = MultiHeadedAttention(args.h, args.d_model)
         ff = PositionwiseFeedForward(args.d_model, args.d_model*4, dropout)
 
         self.src_embed = torch.nn.Parameter(torch.empty(
-            (encoder._n_ldpc + encoder._m_ldpc, args.d_model))) #code.n + code.pc_matrix.size(0), args.d_model)))
-
+            (code.n + code.pc_matrix.size(0), args.d_model)))
         self.decoder = Encoder(EncoderLayer(
             args.d_model, c(attn), c(ff), dropout), args.N_dec)
-
         self.oned_final_embed = torch.nn.Sequential(
             *[nn.Linear(args.d_model, 1)])
-
-        # want a shape (1,n) original codeword sent #code.n + code.pc_matrix.size(0), code.n)
-        self.out_fc = nn.Sequential(
-            nn.Linear(encoder._n_ldpc + encoder._m_ldpc, encoder._k),
-            nn.Sigmoid(),  # Convert logits to probabilities
-        )
+        self.out_fc = nn.Linear(code.n + code.pc_matrix.size(0), code.n)
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
-
-        code = args.code
+        
         self.get_mask(code)
-
+        ###
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
-
-        self.ema = EMA(self, 0.9)
 
     
     def forward(self, y, time_step):
