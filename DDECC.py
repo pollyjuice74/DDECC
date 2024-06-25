@@ -181,9 +181,10 @@ class DDECCT(nn.Module):
     def forward(self, y, time_step):
         print("\nDDECCT model")
 
-        syndrome = torch.sparse.mm(self.pc_matrix, y.T) % 2 # syndrome = (self.pc_matrix @ sign_to_bin(torch.sign(y)).T.float()) % 2
-        syndrome = bin_to_sign(syndrome).T
-        magnitude = torch.abs(y) # m = H @ y.T
+        syndrome = torch.matmul(sign_to_bin(torch.sign(y)).long().float(),
+                                self.pc_matrix) % 2
+        syndrome = bin_to_sign(syndrome)
+        magnitude = torch.abs(y)
         print("magnitude: ", magnitude.shape)
         print("syndrome: ", syndrome.shape, syndrome)
 
