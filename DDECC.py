@@ -137,15 +137,12 @@ class PositionwiseFeedForward(nn.Module):
 
 
 class DDECCT(nn.Module):
-    def __init__(self, args, encoder,
+    def __init__(self, args, 
                  device, dropout=0):
 
         super(DDECCT, self).__init__()
 
-        self.encoder = encoder
-        encoder._m_ldpc = encoder._n_ldpc - encoder._k_ldpc # m_ldpc = n_ldpc-k_ldpc
-
-        self.n_steps = encoder._m_ldpc + 5 # m_ldpc + 5
+        self.n_steps = args.N_steps + 5 # m_ldpc + 5
         self.d_model = args.d_model
         self.sigma = args.sigma
 
@@ -188,7 +185,8 @@ class DDECCT(nn.Module):
         )
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
 
-        self.get_mask()
+        code = args.code
+        self.get_mask(code)
 
         for p in self.parameters():
             if p.dim() > 1:
@@ -303,33 +301,32 @@ class DDECCT(nn.Module):
   #################################
 
 
-    def get_mask(self, no_mask=False):
+    def get_mask(self, code, no_mask=False):
         if no_mask:
             self.src_mask = None
             return
 
-        src_mask = self.build_mask()
+        src_mask = self.build_mask(code)
         print(src_mask)
         self.register_buffer('src_mask', src_mask)
 
 
-    def build_mask(self):
-        mask_size = 2*self.encoder._n_ldpc - self.encoder._k_ldpc
+    def build_mask(self, code):
+        mask_size = code.n + code.pc_matrix.size(0)
         mask = torch.eye(mask_size, mask_size)
-
-        for ii in range(self.encoder._n_ldpc - self.encoder._k_ldpc): # m_ldpc, check node
-            idx = self.encoder.pcm[ii].indices #idx = torch.where(self.encoder.pcm[ii].indices > 0)[0]
+        
+        for ii in range(code.n - code.k):
+            idx = torch.where(code.pc_matrix[ii] > 0)[0]
             for jj in idx:
                 for kk in idx:
                     if jj != kk:
                         mask[jj, kk] += 1
                         mask[kk, jj] += 1
-                        mask[self.encoder._n_ldpc + ii, jj] += 1
-                        mask[jj, self.encoder._n_ldpc + ii] += 1
-
+                        mask[code.n + ii, jj] += 1
+                        mask[jj, code.n + ii] += 1
+        
         src_mask = ~ (mask > 0).unsqueeze(0).unsqueeze(0)
         return src_mask
-
 
         
 class EMA(object):
