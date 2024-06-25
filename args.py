@@ -1,5 +1,5 @@
 import argparse
-from  DDECC.Main import set_seed
+from  Main import set_seed
 
 import os
 import torch
