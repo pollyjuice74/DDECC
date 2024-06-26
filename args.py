@@ -45,7 +45,7 @@ def pass_args_ddecc(code_type='LDPC', k=80, n=121):
     code.n = args.code_n
     code.code_type = args.code_type
 
-    UPDATE
+    # UPDATE
     G, H = Get_Generator_and_Parity(code)
     code.generator_matrix = torch.from_numpy(G).transpose(0, 1).long()
     code.pc_matrix = torch.from_numpy(H).long() 
