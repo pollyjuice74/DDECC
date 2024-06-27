@@ -32,14 +32,6 @@ from sionna.fec.ldpc.decoding import LDPC5GDecoder
 
 
 
-def set_seed(seed=42):
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-    return args
-    
-
 class FEC_Dataset(data.Dataset):
     def __init__(self, code, sigma, len, zero_cw=True):
         self.code = code
