@@ -6,13 +6,6 @@ import torch
 import logging
 from datetime import datetime
 import random
-
-def set_seed(seed=42):
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-    return args
     
 
 def pass_args_ddecc(code_type='LDPC', k=80, n=121):
