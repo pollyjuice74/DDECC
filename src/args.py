@@ -1,6 +1,6 @@
 import argparse
-from  Main import set_seed
-from Codes import *
+# from  Main import set_seed
+from codes import *
 
 import os
 import torch
