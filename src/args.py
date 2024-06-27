@@ -5,7 +5,7 @@ import os
 import torch
 import logging
 from datetime import datetime
-
+import random
 
 def set_seed(seed=42):
     random.seed(seed)
