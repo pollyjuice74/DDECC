@@ -8,6 +8,14 @@ import logging
 from datetime import datetime
 
 
+def set_seed(seed=42):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
+    return args
+    
+
 def pass_args_ddecc(code_type='LDPC', k=80, n=121):
     parser = argparse.ArgumentParser(description='PyTorch DDPM_ECCT')
     parser.add_argument('--epochs', type=int, default=2000)
@@ -71,10 +79,3 @@ def pass_args_ddecc(code_type='LDPC', k=80, n=121):
     print(f"Path to model/logs: {model_dir}")
     # print(args)
 
-
-def set_seed(seed=42):
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-    return args
