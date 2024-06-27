@@ -1,12 +1,19 @@
 import argparse
 from src.codes import *
-from Main import set_seed
 
 import os
 import torch
 import logging
 from datetime import datetime
 import random
+
+
+
+def set_seed(seed=42):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
     
 
 def pass_args_ddecc(code_type='LDPC', k=80, n=121):
@@ -71,4 +78,7 @@ def pass_args_ddecc(code_type='LDPC', k=80, n=121):
                         handlers=handlers)
     print(f"Path to model/logs: {model_dir}")
     # print(args)
+    
+    return args
+    
 
