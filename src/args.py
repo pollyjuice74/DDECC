@@ -1,5 +1,5 @@
 import argparse
-from src.codes import *
+from codes import *
 
 import os
 import torch
