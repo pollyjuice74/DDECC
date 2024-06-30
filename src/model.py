@@ -162,12 +162,9 @@ class DDECCT(nn.Module):
         attn = MultiHeadedAttention(args.h, args.d_model)
         ff = PositionwiseFeedForward(args.d_model, args.d_model*4, dropout)
 
-        self.src_embed = torch.nn.Parameter(torch.empty(
-            (code.n + code.pc_matrix.size(0), args.d_model)))
-        self.decoder = Encoder(EncoderLayer(
-            args.d_model, c(attn), c(ff), dropout), args.N_dec)
-        self.oned_final_embed = torch.nn.Sequential(
-            *[nn.Linear(args.d_model, 1)])
+        self.src_embed = torch.nn.Parameter(torch.empty((code.n + code.pc_matrix.size(0), args.d_model)))
+        self.decoder = Encoder(EncoderLayer(args.d_model, c(attn), c(ff), dropout), args.N_dec)
+        self.oned_final_embed = torch.nn.Sequential(*[nn.Linear(args.d_model, 1)])
         self.out_fc = nn.Linear(code.n + code.pc_matrix.size(0), code.n)
         self.time_embed = nn.Embedding(self.n_steps, args.d_model)
         
