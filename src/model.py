@@ -233,6 +233,7 @@ class DDECCT(nn.Module):
         
         return (yt_1), t
 
+    
     ### Test Call ###
     def p_sample_loop(self, cur_y):
         # Iterative sampling from the real p dist.
