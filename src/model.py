@@ -233,20 +233,24 @@ class DDECCT(nn.Module):
         
         return (yt_1), t
 
-
+    ### Test Call ###
     def p_sample_loop(self, cur_y):
         # Iterative sampling from the real p dist.
         res = []
         synd_all = []
+        
         for it in range(self.pc_matrix.shape[1]):
             cur_y,curr_synd = self.p_sample(cur_y)
             synd_all.append(curr_synd)
             res.append(cur_y)
+        
         synd_all = torch.stack(synd_all).t().cpu()
+        
         # Chose the biggest iteration that reaches 0 synd.
         aa = (synd_all == 0).int()*2-1
         idx = torch.arange(aa.shape[1], 0, -1)
         idx_conv = torch.argmax(aa * idx, 1, keepdim=True)
+        
         return cur_y, res, idx_conv.view(-1), synd_all
 
 
