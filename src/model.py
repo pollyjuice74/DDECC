@@ -231,7 +231,7 @@ class DDECCT(nn.Module):
         yt_1 = yt - alpha_final*noise_add_pred*factor
         yt_1[t==0] = yt[t==0] # if some codeword has 0 synd. keep it as is
         
-        return (yt_1), t
+        return (yt_1), t, noise_add_pred
 
     
     ### Test Call ###
