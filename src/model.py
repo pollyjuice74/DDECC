@@ -174,7 +174,8 @@ class DDECCT(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    
+
+    ### Transformer call ###
     def forward(self, y, time_step):
         # print("\nDDECCT model")
 
@@ -206,23 +207,30 @@ class DDECCT(nn.Module):
         return out_fc
 
 
+    ### Diffusion call ### 
     def p_sample(self, yt):
         # Single sampling from the real p dist.
         sum_syndrome =  (torch.matmul(sign_to_bin(torch.sign(yt.to(self.device))),self.pc_matrix) % 2).round().long().sum(-1)
         # assert sum_syndrome.max() <= self.pc_matrix.shape[1] and sum_syndrome.min() >= 0
         t = sum_syndrome.cpu()
+        
         # Model output
         noise_mul_pred = self(yt.to(self.device), sum_syndrome.to(self.device)).cpu()# predicted multiplicative noise
         noise_add_pred = yt-torch.sign(-noise_mul_pred * torch.sign(yt)) #predicted additive noise
-        factor = (torch.sqrt(self.betas_bar[t])*self.betas[t]/(self.betas_bar[t]+self.betas[t])) #theoretical step size
+         
+        factor = ( torch.sqrt(self.betas_bar[t])*self.betas[t] / (self.betas_bar[t]+self.betas[t]) ) #theoretical step size
         alpha_final = 1
+
+        # Calculates Lambda
         if self.line_search:
-            #Perform Step Sizer Line-search # TODO : perform it on GPU for speed
+            #Perform Step Sizer Line-search 
             alpha = torch.linspace(1,20,20).unsqueeze(0).unsqueeze(0)
             new_synd = (torch.matmul(sign_to_bin(torch.sign(yt.unsqueeze(-1) - alpha*(noise_add_pred*factor).unsqueeze(-1))).permute(0,2,1),self.pc_matrix.cpu()) % 2).round().long().sum(-1)
             alpha_final = alpha.squeeze(0)[:,new_synd.argmin(-1).unsqueeze(-1)].squeeze(0)
+            
         yt_1 = yt - alpha_final*noise_add_pred*factor
         yt_1[t==0] = yt[t==0] # if some codeword has 0 synd. keep it as is
+        
         return (yt_1), t
 
 
@@ -242,7 +250,7 @@ class DDECCT(nn.Module):
         return cur_y, res, idx_conv.view(-1), synd_all
 
 
-  #################################
+  ### Train ###
     def loss(self,x_0):
         # print("\nDDECC Loss")    
         
