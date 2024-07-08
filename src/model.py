@@ -47,6 +47,7 @@ class ConditionalModel(nn.Module):
         x = F.softplus(self.lin3(x, y))
         return self.lin4(x)
 
+
 class Encoder(nn.Module):
     def __init__(self, layer, N):
         super(Encoder, self).__init__()
@@ -54,6 +55,7 @@ class Encoder(nn.Module):
         self.norm = LayerNorm(layer.size)
         if N>1:
             self.norm2 = LayerNorm(layer.size)
+            
     def forward(self, x, mask,time_emb):
         for idx, layer in enumerate(self.layers,start=1):
             x = layer(x, mask)
