@@ -127,7 +127,7 @@ class DDECCT(nn.Module):
         self.betas_bar =  torch.cumsum(self.betas, 0).view(-1,1)
         self.ema = EMA(0.9,flag_run=True)
         
-        self.line_search = False
+        self.line_search = True
         
         code = args.code
         c = copy.deepcopy
