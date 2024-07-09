@@ -19,34 +19,6 @@ import numpy as np
 def clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
-class ConditionalLinear(nn.Module):
-    def __init__(self, num_in, num_out, n_steps):
-        super(ConditionalLinear, self).__init__()
-        self.num_out = num_out
-        self.lin = nn.Linear(num_in, num_out)
-        self.embed = nn.Embedding(n_steps, num_out)
-        self.embed.weight.data.uniform_()
-
-    def forward(self, x, y):
-        out = self.lin(x)
-        gamma = self.embed(y)
-        out = gamma.view(-1, self.num_out) * out
-        return out
-        
-class ConditionalModel(nn.Module):
-    def __init__(self, n_steps):
-        super(ConditionalModel, self).__init__()
-        self.lin1 = ConditionalLinear(2, 128, n_steps)
-        self.lin2 = ConditionalLinear(128, 128, n_steps)
-        self.lin3 = ConditionalLinear(128, 128, n_steps)
-        self.lin4 = nn.Linear(128, 2)
-    
-    def forward(self, x, y):
-        x = F.softplus(self.lin1(x, y))
-        x = F.softplus(self.lin2(x, y))
-        x = F.softplus(self.lin3(x, y))
-        return self.lin4(x)
-
 
 class Encoder(nn.Module):
     def __init__(self, layer, N):
@@ -65,16 +37,6 @@ class Encoder(nn.Module):
         return self.norm(x)
 
 
-class SublayerConnection(nn.Module):
-    def __init__(self, size, dropout):
-        super(SublayerConnection, self).__init__()
-        self.norm = LayerNorm(size)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x, sublayer):
-        return x + self.dropout(sublayer(self.norm(x)))
-
-
 class EncoderLayer(nn.Module):
     def __init__(self, size, self_attn, feed_forward, dropout):
         super(EncoderLayer, self).__init__()
@@ -86,6 +48,16 @@ class EncoderLayer(nn.Module):
     def forward(self, x, mask):
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
         return self.sublayer[1](x, self.feed_forward)
+
+
+class SublayerConnection(nn.Module):
+    def __init__(self, size, dropout):
+        super(SublayerConnection, self).__init__()
+        self.norm = LayerNorm(size)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, sublayer):
+        return x + self.dropout(sublayer(self.norm(x)))
 
 
 class MultiHeadedAttention(nn.Module):
@@ -135,8 +107,6 @@ class PositionwiseFeedForward(nn.Module):
 ############################################################
 #   DDECC
 ############################################################
-
-
 
 class DDECCT(nn.Module):
     def __init__(self, args, 
@@ -344,3 +314,32 @@ class EMA(object):
             for name, param in module.named_parameters():
                 if param.requires_grad:
                     self.shadow[name].data = (1. - self.mu) * param.data + self.mu * self.shadow[name].data
+
+
+# class ConditionalLinear(nn.Module):
+#     def __init__(self, num_in, num_out, n_steps):
+#         super(ConditionalLinear, self).__init__()
+#         self.num_out = num_out
+#         self.lin = nn.Linear(num_in, num_out)
+#         self.embed = nn.Embedding(n_steps, num_out)
+#         self.embed.weight.data.uniform_()
+
+#     def forward(self, x, y):
+#         out = self.lin(x)
+#         gamma = self.embed(y)
+#         out = gamma.view(-1, self.num_out) * out
+#         return out
+        
+# class ConditionalModel(nn.Module):
+#     def __init__(self, n_steps):
+#         super(ConditionalModel, self).__init__()
+#         self.lin1 = ConditionalLinear(2, 128, n_steps)
+#         self.lin2 = ConditionalLinear(128, 128, n_steps)
+#         self.lin3 = ConditionalLinear(128, 128, n_steps)
+#         self.lin4 = nn.Linear(128, 2)
+    
+#     def forward(self, x, y):
+#         x = F.softplus(self.lin1(x, y))
+#         x = F.softplus(self.lin2(x, y))
+#         x = F.softplus(self.lin3(x, y))
+#         return self.lin4(x)
