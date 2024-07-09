@@ -31,7 +31,7 @@ class Encoder(nn.Module):
     def forward(self, x, mask,time_emb):
         for idx, layer in enumerate(self.layers,start=1):
             x = layer(x, mask)
-            x = time_emb*x
+            # x = time_emb*x
             if idx == len(self.layers)//2 and len(self.layers)>1:
                x = self.norm2(x) 
         return self.norm(x)
