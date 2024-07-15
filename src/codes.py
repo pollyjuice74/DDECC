@@ -85,7 +85,7 @@ def FER(x_pred, x_gt):
 
 #############################################
 def Get_Generator_and_Parity(code, standard_form = True):
-    n, k = code.n, code.k
+    n, k = code.n_look_up, code.k_look_up
     path_pc_mat = f'{code.code_type}_N{str(n)}_K{str(k)}'
     path_pc_mat = os.path.join('Codes_DB', path_pc_mat)
     if code.code_type in ['POLAR', 'BCH']:
